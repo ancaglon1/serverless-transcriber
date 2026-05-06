@@ -21,7 +21,6 @@ def handler(job):
 
     audio_path = None
     try:
-        # Get audio
         if audio_url:
             ext = ".mp3"
             for e in [".wav", ".mp3", ".m4a", ".mp4", ".ogg"]:
