@@ -1,31 +1,31 @@
-FROM docker.io/runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+FROM docker.io/nvidia/cuda:12.3.2-runtime-ubuntu22.04
 
-RUN pip cache purge && rm -rf /root/.cache/pip && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3 python3-pip ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
+# Install torch for CUDA 12.1 (compatible with 12.3 runtime)
+RUN pip install --no-cache-dir \
+    torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 \
+    --index-url https://download.pytorch.org/whl/cu121
 
-# Install whisperx + pyannote (this may pull newer torchaudio - that's OK for now)
+# Install whisperx + pyannote — torch/torchaudio already at versions they need
+# No pins required since CUDA versions now match
 RUN pip install --no-cache-dir \
     "numpy==1.26.4" \
-    "transformers<4.36" \
+    "transformers<5" \
     whisperx \
     pyannote.audio \
-    runpod
-
-# CRITICAL: Re-pin torchaudio to match the base image's torch 2.1.0+cu118
-# pyannote may have upgraded it, but our CUDA 11.8 runtime can't use CUDA 12.x builds
-RUN pip install --no-cache-dir \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu118 \
-    --force-reinstall \
+    runpod \
     && pip cache purge
 
-# Pre-cache models
+# Pre-cache base.en model and alignment model
 RUN python3 -c "import whisperx; whisperx.load_model('base.en', 'cpu', compute_type='float32')" 2>/dev/null || true
 RUN python3 -c "import whisperx; whisperx.load_align_model(language_code='en', device='cpu')" 2>/dev/null || true
 
 COPY src/handler.py /handler.py
+
+# Verify imports at build time
+RUN python3 -c "import whisperx; import pyannote.audio; import runpod; print('All imports OK')"
 
 CMD ["python3", "-u", "/handler.py"]
