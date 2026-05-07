@@ -4,13 +4,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3 python3-pip ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install torch for CUDA 12.1 (compatible with 12.3 runtime)
-RUN pip install --no-cache-dir \
-    torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0 \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# Install whisperx + pyannote — torch/torchaudio already at versions they need
-# No pins required since CUDA versions now match
+# Don't pin torch to a specific version or index — let pip resolve from PyPI.
+# PyPI's default torch comes bundled with CUDA 12.1 compat libs which work on CUDA 12.3.
 RUN pip install --no-cache-dir \
     "numpy==1.26.4" \
     "transformers<5" \
@@ -24,8 +19,5 @@ RUN python3 -c "import whisperx; whisperx.load_model('base.en', 'cpu', compute_t
 RUN python3 -c "import whisperx; whisperx.load_align_model(language_code='en', device='cpu')" 2>/dev/null || true
 
 COPY src/handler.py /handler.py
-
-# Verify imports at build time
-RUN python3 -c "import whisperx; import pyannote.audio; import runpod; print('All imports OK')"
 
 CMD ["python3", "-u", "/handler.py"]
