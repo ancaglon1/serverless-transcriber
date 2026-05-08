@@ -37,33 +37,22 @@ def handler(job):
         import whisperx
         audio = whisperx.load_audio(audio_path)
 
-        # Transcribe
         model = whisperx.load_model(
             model_name, "cuda", compute_type="float16",
             asr_options={"max_new_tokens": 128}
         )
         result = model.transcribe(audio, batch_size=8)
 
-        # Align
         model_a, metadata = whisperx.load_align_model(
             language_code=result["language"], device="cuda"
         )
         result = whisperx.align(result["segments"], model_a, metadata, audio, "cuda")
 
-        # Diarize
         if do_diarize:
-            hf_token = os.environ.get("HF_TOKEN", "")
-            token_file = os.path.expanduser("~/.cache/huggingface/token")
-            if os.path.exists(token_file):
-                hf_token = open(token_file).read().strip()
-            if hf_token:
-                diarize_model = whisperx.DiarizationPipeline(
-                    use_auth_token=hf_token, device="cuda"
-                )
-                diarize_segments = diarize_model(audio, min_speakers=1, max_speakers=6)
-                result = whisperx.assign_word_speakers(diarize_segments, result)
+            diarize_model = whisperx.DiarizationPipeline(device="cuda")
+            diarize_segments = diarize_model(audio, min_speakers=1, max_speakers=6)
+            result = whisperx.assign_word_speakers(diarize_segments, result)
 
-        # Format
         segments = []
         for seg in result["segments"]:
             segments.append({
