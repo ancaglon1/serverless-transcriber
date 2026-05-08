@@ -17,16 +17,9 @@ RUN pip install --no-cache-dir \
     runpod \
     && pip cache purge
 
-# Pre-download gated diarization models using build secret
+# Pre-download gated diarization models at build time
 RUN --mount=type=secret,id=hf_token \
-    python3 -c "
-import os
-token = open('/run/secrets/hf_token').read().strip()
-from huggingface_hub import snapshot_download
-snapshot_download('pyannote/speaker-diarization-3.1', token=token)
-snapshot_download('pyannote/segmentation-3.0', token=token)
-print('Models cached')
-"
+    python3 -c "import os; token=open('/run/secrets/hf_token').read().strip(); from huggingface_hub import snapshot_download; snapshot_download('pyannote/speaker-diarization-3.1', token=token); snapshot_download('pyannote/segmentation-3.0', token=token); print('Models cached')"
 
 COPY src/handler.py /handler.py
 
